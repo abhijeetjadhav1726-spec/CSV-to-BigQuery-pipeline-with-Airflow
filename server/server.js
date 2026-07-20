@@ -21,9 +21,30 @@ app.use('/api/events', eventRoutes);
 app.use('/api/bookings', bookingRoutes);
 
 // Database Connection
-mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/eventora')
-  .then(() => console.log('MongoDB Connected'))
-  .catch(err => console.error('MongoDB Connection Error:', err));
+let isConnected = false;
+const connectDB = async () => {
+  if (isConnected && mongoose.connection.readyState === 1) return;
+  try {
+    await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/eventora');
+    isConnected = true;
+    console.log('MongoDB Connected');
+  } catch (err) {
+    console.error('MongoDB Connection Error:', err);
+  }
+};
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Initial connection attempt
+connectDB();
+
+// Middleware to ensure DB connection is active on incoming requests
+app.use(async (req, res, next) => {
+  await connectDB();
+  next();
+});
+
+module.exports = app;
+
+if (!process.env.VERCEL) {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+}
